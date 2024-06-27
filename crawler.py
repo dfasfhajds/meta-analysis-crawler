@@ -48,7 +48,7 @@ class Crawler:
         pmc = pmc_element.text if pmc_element is not None else None
 
         if pmc is None:
-            return None  # 如果没有PMCID，返回None
+            return None 
 
         abstract_elements = xml_response.findall(".//AbstractText")
         abstract = ''.join([f"""## {a.attrib['Label']}\n{a.text}\n""" for a in abstract_elements])
