@@ -9,7 +9,12 @@ class Crawler:
     def __init__(self):
         pass
 
-    def __query_PMID(self: object, search_term: str, max_results: int = 10, start: int = 0) -> list:
+    def __query_PMID(self: object, 
+                     search_term: str, 
+                     max_results: int = 10, 
+                     start: int = 0, 
+                     max_year: int = 2023, 
+                     min_year: int =2012) -> list:
         """
         Retrieve the article PMIDs for a query
     
@@ -21,7 +26,7 @@ class Crawler:
         Returns:
             list: A list of PMIDs
         """
-        search_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={search_term}&retmax={max_results}&retstart={start}&retmode=xml"
+        search_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={search_term}&retmax={max_results}&retstart={start}&retmode=xml&maxdate={max_year}&mindate={min_year}"
         search_response = requests.get(search_url)
         search_tree = ElementTree.fromstring(search_response.content)
 
@@ -46,6 +51,7 @@ class Crawler:
             doi = xml_response.find(".//ArticleId[@IdType='doi']").text
             journal = xml_response.find(".//Journal/Title").text
             pmc = xml_response.find(".//ArticleId[@IdType='pmc']").text
+            full_text_url=f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmc}"
 
             abstract_elements = xml_response.findall(".//AbstractText")
             abstract = ''.join([f"""## {a.attrib['Label']}\n{a.text}\n""" for a in abstract_elements])
@@ -65,6 +71,7 @@ class Crawler:
                 pmid=pmid,
                 pmcid=pmc,
                 title=title,
+                full_text_url=full_text_url,
                 authors=authors,
                 doi=doi,
                 journal=journal,
@@ -112,7 +119,26 @@ class Crawler:
         except Exception as e:
             print(f"Error extracting figures for article with PMID={pmid}: {e}")
             return []
+        
+    def __extract_supplementary_materials_url(self: object, url: str) -> list:
+        keywords = ['quality', 'assess', 'assessment', 'risk', 'bias', 'publication', 'search', 'funnel', 'forest', 'newcastle', 'ottawa', 'STROBE', 'PRISMA']
+        try:
+            results = []
+            headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
+            full_text_response = requests.get(url=url, headers=headers)
+            soup = BeautifulSoup(full_text_response.content, 'html.parser')
 
+            for suppmat in soup.find('dd', { 'id': 'data-suppmats'}).children:
+                for caption in suppmat.find('div', { 'class': ['caption', 'half_rhythm'] }).children:
+                    if any(word in caption.text.lower() for word in keywords):
+                        results.append('https://www.ncbi.nlm.nih.gov' + suppmat.find('a', { 'data-ga-action': 'click_feat_suppl' }).get('href'))
+                        break
+
+            return results
+        except Exception as e:
+            print(f"Error extracting supplementary materials URL from {url}: {e}")
+            return []
+    
     def query(self: object, search_term: str, max_results: int = 10) -> list[MetaAnalysis]:
         """
         Query articles from PubMed
@@ -141,6 +167,10 @@ class Crawler:
             start += len(id_list)
 
         for article in results:
-            article.setFigures(self.__extract_figures_from_article(article))
+            article.set_figures(self.__extract_figures_from_article(article))
+
+        # get article supplementary material
+        for article in results:
+            article.set_supplementary_materials(self.__extract_supplementary_materials_url(f"https://www.ncbi.nlm.nih.gov/pmc/articles/{article['pmcid']}"))
 
         return results

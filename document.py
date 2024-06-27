@@ -7,12 +7,14 @@ class MetaAnalysis(dict):
         "pmid",
         "pmcid",
         "doi",
+        "full_text_url",
         "title",
         "authors",
         "abstract",
         "journal",
         "publication_date",
-        "figures"
+        "figures",
+        "supplementary_materials"
     )
 
     def __init__(
@@ -23,8 +25,11 @@ class MetaAnalysis(dict):
         for field in self.__slots__:
             self.__setattr__(field, kwargs.get(field, None))
 
-    def setFigures(self: object, figures: list):
+    def set_figures(self: object, figures: list):
         self["figures"] = figures
+
+    def set_supplementary_materials(self: object, supp: list):
+        self['supplementary_materials'] = supp
 
     def toJSON(self):
         return json.dumps(self)
