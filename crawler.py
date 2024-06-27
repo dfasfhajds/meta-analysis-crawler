@@ -41,41 +41,41 @@ class Crawler:
         response = requests.get(url)
         xml_response = ElementTree.fromstring(response.content)
 
-        title = xml_response.find(".//ArticleTitle").text
-        doi = xml_response.find(".//ArticleId[@IdType='doi']").text
-        journal = xml_response.find(".//Journal/Title").text
-        pmc_element = xml_response.find(".//ArticleId[@IdType='pmc']")
-        pmc = pmc_element.text if pmc_element is not None else None
+        try:
+            title = xml_response.find(".//ArticleTitle").text
+            doi = xml_response.find(".//ArticleId[@IdType='doi']").text
+            journal = xml_response.find(".//Journal/Title").text
+            pmc = xml_response.find(".//ArticleId[@IdType='pmc']").text
 
-        if pmc is None:
-            return None 
+            abstract_elements = xml_response.findall(".//AbstractText")
+            abstract = ''.join([f"""## {a.attrib['Label']}\n{a.text}\n""" for a in abstract_elements])
+            
+            date_element = xml_response.find(".//PubMedPubDate[@PubStatus='pubmed']")
+            date = f"{date_element.find('.//Year').text}/{date_element.find('.//Month').text}/{date_element.find('.//Day').text}"
 
-        abstract_elements = xml_response.findall(".//AbstractText")
-        abstract = ''.join([f"""## {a.attrib['Label']}\n{a.text}\n""" for a in abstract_elements])
-        
-        date_element = xml_response.find(".//PubMedPubDate[@PubStatus='pubmed']")
-        date = f"{date_element.find('.//Year').text}/{date_element.find('.//Month').text}/{date_element.find('.//Day').text}"
+            authors_element = xml_response.findall(".//Author")
+            authors = []
+            for element in authors_element:
+                lastname = element.find('.//LastName')
+                forename = element.find('.//ForeName')
+                if lastname is not None and forename is not None:
+                    authors.append(f"{lastname.text} {forename.text}")
 
-        authors_element = xml_response.findall(".//Author")
-        authors = []
-        for element in authors_element:
-            lastname = element.find('.//LastName')
-            forename = element.find('.//ForeName')
-            if lastname is not None and forename is not None:
-                authors.append(f"{lastname.text} {forename.text}")
+            doc = MetaAnalysis(
+                pmid=pmid,
+                pmcid=pmc,
+                title=title,
+                authors=authors,
+                doi=doi,
+                journal=journal,
+                abstract=abstract,
+                publication_date=date
+            )
 
-        doc = MetaAnalysis(
-            pmid=pmid,
-            pmcid=pmc,
-            title=title,
-            authors=authors,
-            doi=doi,
-            journal=journal,
-            abstract=abstract,
-            publication_date=date
-        )
-
-        return doc
+            return doc
+        except Exception as e:
+            print(f"Error extracting article with PMID={pmid}: {e}")
+            return None
         
     def __extract_figures_from_article(self: object, article: MetaAnalysis) -> list:
         """
@@ -127,18 +127,16 @@ class Crawler:
         results = []
         start = 0
         while len(results) < max_results:
-            id_list = self.__query_PMID(search_term, max_results, start)
+            id_list = self.__query_PMID(search_term, max_results - len(results), start)
             if not id_list:
                 break  # No more articles to fetch
 
             for id in id_list:
                 article = self.__query_article(id)
-                if article is None:  # skip thesis without PMCID
+                if article is None:  # skip articles with missing data
                     continue
                 if 'meta-analysis' in article['title'].lower():
                     results.append(article)
-                    if len(results) >= max_results:
-                        break
 
             start += len(id_list)
 
