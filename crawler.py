@@ -1,5 +1,4 @@
 import requests
-import datetime
 from xml.etree import ElementTree
 from bs4 import BeautifulSoup
 from document import MetaAnalysis
@@ -10,25 +9,22 @@ class Crawler:
     def __init__(self):
         pass
 
-
-    def __query_PMID(self: object, search_term: str, max_results: int = 10) -> list:
+    def __query_PMID(self: object, search_term: str, max_results: int = 10, start: int = 0) -> list:
         """
         Retrieve the article PMIDs for a query
     
         Parameters:
             search_term (str): Search term on PubMed database
             max_results (int): Maximum number of PMIDs to retrieve
+            start (int): Starting index for the results
     
         Returns:
             list: A list of PMIDs
         """
-
-        # Search for the article
-        search_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={search_term}&retmax={max_results}&retmode=xml"
+        search_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={search_term}&retmax={max_results}&retstart={start}&retmode=xml"
         search_response = requests.get(search_url)
         search_tree = ElementTree.fromstring(search_response.content)
 
-        # Extract PubMed ID (PMID)
         return [e.text for e in search_tree.find("IdList").findall("Id")]
 
     def __query_article(self: object, pmid: str) -> MetaAnalysis:
@@ -41,27 +37,25 @@ class Crawler:
         Returns:
             MetaAnalysis: Article object
         """
-
-        # Fetch article details using the PMID
         url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={pmid}&retmode=xml"
         response = requests.get(url)
         xml_response = ElementTree.fromstring(response.content)
 
-        # get article data
         title = xml_response.find(".//ArticleTitle").text
         doi = xml_response.find(".//ArticleId[@IdType='doi']").text
         journal = xml_response.find(".//Journal/Title").text
-        pmc = xml_response.find(".//ArticleId[@IdType='pmc']").text
+        pmc_element = xml_response.find(".//ArticleId[@IdType='pmc']")
+        pmc = pmc_element.text if pmc_element is not None else None
 
-        # get abstract
+        if pmc is None:
+            return None  # 如果没有PMCID，返回None
+
         abstract_elements = xml_response.findall(".//AbstractText")
         abstract = ''.join([f"""## {a.attrib['Label']}\n{a.text}\n""" for a in abstract_elements])
         
-        # get article date
         date_element = xml_response.find(".//PubMedPubDate[@PubStatus='pubmed']")
         date = f"{date_element.find('.//Year').text}/{date_element.find('.//Month').text}/{date_element.find('.//Day').text}"
 
-        # get article authors
         authors_element = xml_response.findall(".//Author")
         authors = []
         for element in authors_element:
@@ -103,41 +97,52 @@ class Crawler:
 
             links = soup.find_all('figure')
             for link in links:
-                fig_response= requests.get(f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmcid}/figure/{link.find('a').get('data-figure-id')}/", headers=headers)
-                soup = BeautifulSoup(fig_response.content, 'html.parser')
-                results.append({
-                    'src': link.find('a').get('href'),
-                    'caption': soup.find('div', {'class': 'caption'}).find('strong').get_text()
-                })
+                fig_id = link.find('a').get('data-figure-id')
+                if fig_id:
+                    fig_response = requests.get(f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmcid}/figure/{fig_id}/", headers=headers)
+                    soup = BeautifulSoup(fig_response.content, 'html.parser')
+                    caption_div = soup.find('div', {'class': 'caption'})
+                    caption = caption_div.find('strong').get_text() if caption_div else ""
+                    results.append({
+                        'src': link.find('a').get('href'),
+                        'caption': caption
+                    })
 
             return results
         except Exception as e:
             print(f"Error extracting figures for article with PMID={pmid}: {e}")
             return []
-    
+
     def query(self: object, search_term: str, max_results: int = 10) -> list[MetaAnalysis]:
         """
-        Qurey articles from PubMed
+        Query articles from PubMed
     
         Parameters:
             search_term (str): Search term on PubMed database
-            max_results (int): Maximum number of PMIDs to retrieve
+            max_results (int): Maximum number of articles to retrieve
     
         Returns:
             List[MetaAnalysis]: A list of article objects
         """
         results = []
+        start = 0
+        while len(results) < max_results:
+            id_list = self.__query_PMID(search_term, max_results, start)
+            if not id_list:
+                break  # No more articles to fetch
 
-        id_list = self.__query_PMID(search_term, max_results)
+            for id in id_list:
+                article = self.__query_article(id)
+                if article is None:  # skip thesis without PMCID
+                    continue
+                if 'meta-analysis' in article['title'].lower():
+                    results.append(article)
+                    if len(results) >= max_results:
+                        break
 
-        # get article data
-        for id in id_list:
-            results.append(self.__query_article(id))
+            start += len(id_list)
 
-        # get article figures
         for article in results:
             article.setFigures(self.__extract_figures_from_article(article))
 
-        # get article supplementary material
-        
         return results
