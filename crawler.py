@@ -121,6 +121,15 @@ class Crawler:
             return []
         
     def __extract_supplementary_materials_url(self: object, url: str) -> list:
+        """
+        Extract supplementary materials (url) of an article from a url
+    
+        Parameters:
+            url (str): url string
+    
+        Returns:
+            List: list of supplementary material urls
+        """
         keywords = ['quality', 'assess', 'assessment', 'risk', 'bias', 'publication', 'search', 'funnel', 'forest', 'newcastle', 'ottawa', 'STROBE', 'PRISMA']
         try:
             results = []
