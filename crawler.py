@@ -2,6 +2,10 @@ import requests
 from xml.etree import ElementTree
 from bs4 import BeautifulSoup
 from document import MetaAnalysis
+from pathlib import Path
+from multiprocessing import cpu_count
+from multiprocessing.pool import ThreadPool
+import json
 
 class Crawler:
     """Wrapper of PubMed MetaAnalysis Crawler"""
@@ -183,3 +187,54 @@ class Crawler:
             article.set_supplementary_materials(self.__extract_supplementary_materials_url(f"https://www.ncbi.nlm.nih.gov/pmc/articles/{article['pmcid']}"))
 
         return results
+
+    def download(self: object, list: list[MetaAnalysis]):
+        """
+        Download all files associated with the list of meta-analysis and generate json file
+    
+        Parameters:
+            list (List[MetaAnalysis]): list of meta-analysis objects
+        """
+        print("Begin downloading")
+
+        # create directories
+        Path('./data').mkdir(exist_ok=True)
+        for article in list:
+            Path(f'./data/{article["pmid"]}').mkdir(exist_ok=True)
+            Path(f'./data/{article["pmid"]}/figures').mkdir(exist_ok=True)
+            Path(f'./data/{article["pmid"]}/supp').mkdir(exist_ok=True)
+            Path(f'./data/{article["pmid"]}/studies').mkdir(exist_ok=True)
+
+        # export data to json file
+        with open('./data/data.json', 'w', encoding='utf-8') as f:
+          json.dump({ 'data': list }, f, ensure_ascii=False, indent = 4)
+
+        # generate list of urls and associated paths
+        urls = []
+        paths = []
+        for article in list:
+            for supp in article['supplementary_materials']:
+                urls.append(supp)
+                paths.append(f'./data/{article["pmid"]}/supp/{supp.split("/")[-1]}')
+
+            for figure in article['figures']:
+                urls.append(figure['src'])
+                paths.append(f'./data/{article["pmid"]}/figures/{figure["src"].split("/")[-1]}')
+
+        inputs = zip(urls, paths)
+
+        def download_url(args): 
+            url, fn = args[0], args[1] 
+            try: 
+                r = requests.get(url, headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}) 
+                with open(fn, 'wb') as f: 
+                    f.write(r.content) 
+                return url
+            except Exception as e: 
+                print('Exception in download_url():', e)
+
+        # download in parallel
+        results = ThreadPool(cpu_count() - 1).imap_unordered(download_url, inputs)
+        for result in results: 
+            print('Downloaded: ' + result)
+        print("Download completed")
