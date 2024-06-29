@@ -6,6 +6,7 @@ from pathlib import Path
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
 import json
+from tqdm import tqdm
 
 class Crawler:
     """Wrapper of PubMed MetaAnalysis Crawler"""
@@ -172,9 +173,9 @@ class Crawler:
         Returns:
             List[MetaAnalysis]: A list of article objects
         """
-        print("Begin query")
         results = []
         start = 0
+        print('', end='\rExtracting article info of 0 articles')
         while len(results) < max_results:
             id_list = self.__query_PMID(search_term, max_results - len(results), start)
             if not id_list:
@@ -185,23 +186,21 @@ class Crawler:
                 if article is None:  # skip articles with missing data
                     continue
                 if 'meta-analysis' in article['title'].lower():
-                    print(f'Extracted info for PMID={id}')
                     results.append(article)
+                    print('', end=f'\rExtracting article info of {len(results)} articles')
 
             start += len(id_list)
+        print() # stop flushing the terminal and print next line
 
-        for article in results:
+        for article in tqdm(results, desc="Extracting figures URL: "):
             figure_list = self.__extract_figures_from_article(article)
-            print(f'Extract {len(figure_list)} figures for PMID={article["pmid"]}')
             article.set_figures(figure_list)
 
         # get article supplementary material
-        for article in results:
+        for article in tqdm(results, desc="Extracting supplementary materials URL: "):
             supp_list = self.__extract_supplementary_materials_url(article)
-            print(f'Extract {len(supp_list)} supplementary_materials for PMID={article["pmid"]}')
             article.set_supplementary_materials(supp_list)
 
-        print("End query")
         return results
 
     def download(self: object, list: list[MetaAnalysis]):
@@ -211,8 +210,6 @@ class Crawler:
         Parameters:
             list (List[MetaAnalysis]): list of meta-analysis objects
         """
-        print("Begin downloading")
-
         # create directories
         Path('./data').mkdir(exist_ok=True)
         for article in list:
@@ -247,10 +244,9 @@ class Crawler:
                     f.write(r.content) 
                 return url
             except Exception as e: 
-                print('Exception in download_url():', e)
+                # print('Exception in download_url():', e)
+                return None
 
         # download in parallel
-        results = ThreadPool(cpu_count() - 1).imap_unordered(download_url, inputs)
-        for result in results: 
-            print('Downloaded: ' + result)
-        print("Download completed")
+        for _ in tqdm(ThreadPool(cpu_count() - 1).imap_unordered(download_url, inputs), total=len(urls), desc="Downloading files: "): 
+            continue
