@@ -14,7 +14,8 @@ class MetaAnalysis(dict):
         "journal",
         "publication_date",
         "figures",
-        "supplementary_materials"
+        "supplementary_materials",
+        "reference_list"
     )
 
     def __init__(
@@ -30,6 +31,9 @@ class MetaAnalysis(dict):
 
     def set_supplementary_materials(self: object, supp: list):
         self['supplementary_materials'] = supp
+
+    def set_reference_list(self: object, ref: list):
+        self['reference_list'] = ref
 
     def toJSON(self):
         return json.dumps(self)

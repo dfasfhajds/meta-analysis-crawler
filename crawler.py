@@ -72,6 +72,17 @@ class Crawler:
                 if lastname is not None and forename is not None:
                     authors.append(f"{lastname.text} {forename.text}")
 
+            reference_list = []
+            reference_list_element = xml_response.find(".//ReferenceList")
+            for reference_element in reference_list_element:
+                ref_doi = reference_element.find(".//ArticleId[@IdType='doi']")
+                ref_pmid = reference_element.find(".//ArticleId[@IdType='pubmed']")
+                reference_list.append({
+                    "citation": reference_element.find('.//Citation').text,
+                    "doi": ref_doi.text if ref_doi is not None else None,
+                    "pmid": ref_pmid.text if ref_pmid is not None else None
+                })
+
             doc = MetaAnalysis(
                 pmid=pmid,
                 pmcid=pmc,
@@ -81,7 +92,8 @@ class Crawler:
                 doi=doi,
                 journal=journal,
                 abstract=abstract,
-                publication_date=date
+                publication_date=date,
+                reference_list=reference_list
             )
 
             return doc
