@@ -85,7 +85,7 @@ class Crawler:
 
             return doc
         except Exception as e:
-            print(f"Error extracting article with PMID={pmid}: {e}")
+            # print(f"Error extracting article with PMID={pmid}: {e}")
             return None
         
     def __extract_figures_from_article(self: object, article: MetaAnalysis) -> list:
@@ -123,7 +123,7 @@ class Crawler:
 
             return results
         except Exception as e:
-            print(f"Error extracting figures for article with PMID={pmid}: {e}")
+            # print(f"Error extracting figures for article with PMID={pmid}: {e}")
             return []
         
     def __extract_supplementary_materials_url(self: object, article: MetaAnalysis) -> list:
@@ -158,7 +158,7 @@ class Crawler:
 
             return results
         except Exception as e:
-            print(f"Error extracting supplementary materials URL from {url}: {e}")
+            # print(f"Error extracting supplementary materials URL from {url}: {e}")
             return []
     
     def query(self: object, search_term: str, max_results: int = 10) -> list[MetaAnalysis]:
@@ -172,6 +172,7 @@ class Crawler:
         Returns:
             List[MetaAnalysis]: A list of article objects
         """
+        print("Begin query")
         results = []
         start = 0
         while len(results) < max_results:
@@ -184,17 +185,23 @@ class Crawler:
                 if article is None:  # skip articles with missing data
                     continue
                 if 'meta-analysis' in article['title'].lower():
+                    print(f'Extracted info for PMID={id}')
                     results.append(article)
 
             start += len(id_list)
 
         for article in results:
-            article.set_figures(self.__extract_figures_from_article(article))
+            figure_list = self.__extract_figures_from_article(article)
+            print(f'Extract {len(figure_list)} figures for PMID={article["pmid"]}')
+            article.set_figures(figure_list)
 
         # get article supplementary material
         for article in results:
-            article.set_supplementary_materials(self.__extract_supplementary_materials_url(article))
+            supp_list = self.__extract_supplementary_materials_url(article)
+            print(f'Extract {len(supp_list)} supplementary_materials for PMID={article["pmid"]}')
+            article.set_supplementary_materials(supp_list)
 
+        print("End query")
         return results
 
     def download(self: object, list: list[MetaAnalysis]):
