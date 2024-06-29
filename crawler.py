@@ -114,8 +114,10 @@ class Crawler:
                     soup = BeautifulSoup(fig_response.content, 'html.parser')
                     caption_div = soup.find('div', {'class': 'caption'})
                     caption = caption_div.find('strong').get_text() if caption_div else ""
+                    src = link.find('a').get('href')
                     results.append({
-                        'src': link.find('a').get('href'),
+                        'path': f'./data/{pmid}/figures/{src.split("/")[-1]}',
+                        'src': src,
                         'caption': caption
                     })
 
@@ -124,16 +126,19 @@ class Crawler:
             print(f"Error extracting figures for article with PMID={pmid}: {e}")
             return []
         
-    def __extract_supplementary_materials_url(self: object, url: str) -> list:
+    def __extract_supplementary_materials_url(self: object, article: MetaAnalysis) -> list:
         """
         Extract supplementary materials (url) of an article from a url
     
         Parameters:
-            url (str): url string
+            article (MetaAnalysis): Article object
     
         Returns:
             List: list of supplementary material urls
         """
+        pmid = getattr(article, 'pmid')
+        pmcid = getattr(article, 'pmcid')
+        url = f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmcid}"
         keywords = ['quality', 'assess', 'assessment', 'risk', 'bias', 'publication', 'search', 'funnel', 'forest', 'newcastle', 'ottawa', 'STROBE', 'PRISMA']
         try:
             results = []
@@ -144,7 +149,11 @@ class Crawler:
             for suppmat in soup.find('dd', { 'id': 'data-suppmats'}).children:
                 for caption in suppmat.find('div', { 'class': ['caption', 'half_rhythm'] }).children:
                     if any(word in caption.text.lower() for word in keywords):
-                        results.append('https://www.ncbi.nlm.nih.gov' + suppmat.find('a', { 'data-ga-action': 'click_feat_suppl' }).get('href'))
+                        src = 'https://www.ncbi.nlm.nih.gov' + suppmat.find('a', { 'data-ga-action': 'click_feat_suppl' }).get('href')
+                        results.append({
+                            'path': f'./data/{pmid}/supp/{src.split("/")[-1]}',
+                            'src': src
+                        })
                         break
 
             return results
@@ -184,7 +193,7 @@ class Crawler:
 
         # get article supplementary material
         for article in results:
-            article.set_supplementary_materials(self.__extract_supplementary_materials_url(f"https://www.ncbi.nlm.nih.gov/pmc/articles/{article['pmcid']}"))
+            article.set_supplementary_materials(self.__extract_supplementary_materials_url(article))
 
         return results
 
@@ -214,12 +223,12 @@ class Crawler:
         paths = []
         for article in list:
             for supp in article['supplementary_materials']:
-                urls.append(supp)
-                paths.append(f'./data/{article["pmid"]}/supp/{supp.split("/")[-1]}')
+                urls.append(supp['src'])
+                paths.append(supp['path'])
 
             for figure in article['figures']:
                 urls.append(figure['src'])
-                paths.append(f'./data/{article["pmid"]}/figures/{figure["src"].split("/")[-1]}')
+                paths.append(figure['path'])
 
         inputs = zip(urls, paths)
 
