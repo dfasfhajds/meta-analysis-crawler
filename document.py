@@ -9,7 +9,6 @@ class MetaAnalysis(dict):
         "doi",
         "full_text_url",
         "title",
-        "authors",
         "abstract",
         "journal",
         "publication_date",
