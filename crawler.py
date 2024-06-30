@@ -65,13 +65,14 @@ class Crawler:
             date_element = xml_response.find(".//PubMedPubDate[@PubStatus='pubmed']")
             date = f"{date_element.find('.//Year').text}/{date_element.find('.//Month').text}/{date_element.find('.//Day').text}"
 
-            reference_list = []
+            studies_index = self.__extract_studies_index_from_pmc_table(pmc)
+            studies_list = []
             reference_list_element = xml_response.find(".//ReferenceList")
-            for reference_element in reference_list_element:
-                ref_doi = reference_element.find(".//ArticleId[@IdType='doi']")
-                ref_pmid = reference_element.find(".//ArticleId[@IdType='pubmed']")
-                reference_list.append({
-                    'citation': reference_element.find(".//Citation").text,
+            for i in studies_index:
+                ref_doi = reference_list_element[i-1].find(".//ArticleId[@IdType='doi']")
+                ref_pmid = reference_list_element[i-1].find(".//ArticleId[@IdType='pubmed']")
+                studies_list.append({
+                    'citation': reference_list_element[i-1].find(".//Citation").text,
                     'doi': ref_doi.text if ref_doi is not None else None,
                     'pmid': ref_pmid.text if ref_pmid is not None else None
                 })
@@ -85,7 +86,7 @@ class Crawler:
                 journal=journal,
                 abstract=abstract,
                 publication_date=date,
-                reference_list=reference_list
+                studies_list=studies_list
             )
 
             return doc
@@ -160,6 +161,42 @@ class Crawler:
             return results
         except Exception as e:
             # print(f"Error extracting supplementary materials URL from {url}: {e}")
+            return []
+
+    def __extract_studies_index_from_pmc_table(self: object, pmcid: str) -> list:
+        """
+        Extract the reference index of the included studies from table in full text articles on PMC
+    
+        Parameters:
+            article (MetaAnalysis): Article object
+    
+        Returns:
+            List: list of reference index
+        """
+        url = f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmcid}"
+        keywords = ["characteristics", "study", "studies", "included", "selection", "selected"]
+        try:
+            results = []
+            full_text_response = requests.get(url, headers=self.headers)
+            soup = BeautifulSoup(full_text_response.content, "html.parser")
+
+            table_wrappers = soup.find_all("div", { 'class': "table-wrap" })
+            for table_wrapper in table_wrappers:
+                caption = table_wrapper.find("div", { 'class': "caption" }).find("strong").text
+
+                if not any(word in caption.lower() for word in keywords):
+                    continue
+
+                table = table_wrapper.find("div", { 'class': "xtable" }).find("table")
+                for tr in table.find("tbody").find_all("tr"):
+                    try:
+                        ref = tr.find("td").find("a")
+                        results.append(int(ref.text))
+                    except Exception as e:
+                        continue
+
+            return list(dict.fromkeys(results)) # remove duplicate
+        except Exception as e:
             return []
 
     def query(self: object, 

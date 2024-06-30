@@ -14,7 +14,7 @@ class MetaAnalysis(dict):
         "publication_date",
         "figures",
         "supplementary_materials",
-        "reference_list"
+        "studies_list"
     )
 
     def __init__(
