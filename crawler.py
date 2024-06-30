@@ -20,7 +20,7 @@ class Crawler:
                      max_results: int = 10, 
                      start: int = 0, 
                      max_year: int = 2023, 
-                     min_year: int =2012) -> list:
+                     min_year: int =2012) -> list[str]:
         """
         Retrieve the article PMIDs for a query
     
@@ -48,11 +48,11 @@ class Crawler:
         Returns:
             MetaAnalysis: Article object
         """
-        url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={pmid}&retmode=xml"
-        response = requests.get(url)
-        xml_response = ElementTree.fromstring(response.content)
-
         try:
+            url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={pmid}&retmode=xml"
+            response = requests.get(url)
+            xml_response = ElementTree.fromstring(response.content)
+
             title = xml_response.find(".//ArticleTitle").text
             doi = xml_response.find(".//ArticleId[@IdType='doi']").text
             journal = xml_response.find(".//Journal/Title").text
@@ -163,7 +163,7 @@ class Crawler:
             # print(f"Error extracting supplementary materials URL from {url}: {e}")
             return []
 
-    def __extract_studies_index_from_pmc_table(self: object, pmcid: str) -> list:
+    def __extract_studies_index_from_pmc_table(self: object, pmcid: str) -> list[int]:
         """
         Extract the reference index of the included studies from table in full text articles on PMC
     
