@@ -71,7 +71,6 @@ class Crawler:
             if api_key:
                 params['api_key'] = api_key
             response = requests.get(url, params=params, headers=self.headers)
-            print(response)
             xml_response = ElementTree.fromstring(response.content)
 
             title = xml_response.find(".//ArticleTitle").text
