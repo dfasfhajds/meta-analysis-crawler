@@ -2,6 +2,7 @@ import pdfplumber
 import pandas as pd
 import os
 from typing import List, Dict, Optional
+from dotenv import load_dotenv
 
 def get_title(words: List[Dict[str, str]]) -> Optional[str]:
     """
@@ -54,6 +55,26 @@ def extract_table(pdf_path: str, pmid: str, csv_path: str, writer: pd.ExcelWrite
             result.to_excel(writer, sheet_name=filename, index=False)
             # print(f"Writing to {csv_path}/{filename}.csv with {len(result)} records")
 
+def read_caption(pdf_path: str):
+    """
+        Read the caption in supplementary for AI analysis
+        
+        Parameters:
+            pdf_path: The path to the PDF file
+        
+        Return:
+            caption: The caption of supplementary
+    """
+    with pdfplumber.open(pdf_path) as pdf:
+        caption = ''
+        page_num = 0
+        # Get the caption of the file which is located in the first page 
+        for page in pdf.pages:
+            page_num += 1
+            if page_num == 1:
+                caption = caption + page.extract_text()
+        return caption
+
 def read_table(base_dir: str = "./data", output_file: str = "output.xlsx"):
     """
     Read the specified base directory and process each PDF file found in 'supp' subdirectories.
@@ -71,5 +92,13 @@ def read_table(base_dir: str = "./data", output_file: str = "output.xlsx"):
                 for pdf in pdf_files:
                     pdf_path = os.path.join(supp_path, pdf)
                     print(f"Processing: {pdf_path}")
-                    extract_table(pdf_path, pmid, root, writer)
+                    caption = read_caption(pdf_path)
+                    # Check whether the selected file has qulity assessment
+                    is_find = load_dotenv(caption)
+                    if is_find in VALUE1:
+                        print(f"Article {pdf_path} has qulity assessment")
+                        extract_table(pdf_path, writer, pmid)
+                    else:
+                        result = pd.DataFrame({'Message': ["The article has no quality assesment"]})
+                        result.to_excel(writer, sheet_name=None, index=False)
     # print(f"Excel file saved to {output_file}")
