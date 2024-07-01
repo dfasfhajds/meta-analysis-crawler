@@ -1,10 +1,6 @@
 from crawler import Crawler
 import os
-from dotenv import load_dotenv
 from table_extractor import read_table
-
-load_dotenv()
-PUBMED_API_KEY = os.environ['PUBMED_API_KEY']
 
 crawler = Crawler()
 
