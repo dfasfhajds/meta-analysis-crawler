@@ -20,7 +20,8 @@ class Crawler:
                      max_results: int = 10, 
                      start: int = 0, 
                      max_year: int = 2023, 
-                     min_year: int =2012) -> list[str]:
+                     min_year: int = 2012,
+                     api_key: str = None) -> list[str]:
         """
         Retrieve the article PMIDs for a query
     
@@ -32,13 +33,25 @@ class Crawler:
         Returns:
             list: A list of PMIDs
         """
-        search_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={search_term}&retmax={max_results}&retstart={start}&retmode=xml&maxdate={max_year}&mindate={min_year}"
-        search_response = requests.get(search_url)
-        search_tree = ElementTree.fromstring(search_response.content)
+        url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+        params = {
+            'db': "pubmed",
+            'term': search_term,
+            'retmax': max_results,
+            'retstart': start,
+            'retmode': 'xml',
+            'maxdate': max_year,
+            'mindate': min_year
+        }
+        if api_key:
+            params['api_key'] = api_key
 
-        return [e.text for e in search_tree.find("IdList").findall("Id")]
+        response = requests.get(url, params=params, headers=self.headers)
+        xml_response = ElementTree.fromstring(response.content)
 
-    def __query_article(self: object, pmid: str) -> MetaAnalysis:
+        return [e.text for e in xml_response.find("IdList").findall("Id")]
+
+    def __query_article(self: object, pmid: str, api_key: str = None) -> MetaAnalysis:
         """
         Retrieve the article information with its PMID
     
@@ -49,8 +62,16 @@ class Crawler:
             MetaAnalysis: Article object
         """
         try:
-            url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={pmid}&retmode=xml"
-            response = requests.get(url)
+            url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+            params = {
+                'db': 'pubmed',
+                'id': pmid,
+                'retmode': 'xml',
+            }
+            if api_key:
+                params['api_key'] = api_key
+            response = requests.get(url, params=params, headers=self.headers)
+            print(response)
             xml_response = ElementTree.fromstring(response.content)
 
             title = xml_response.find(".//ArticleTitle").text
@@ -203,7 +224,8 @@ class Crawler:
               search_term: str, 
               max_results: int = 10, 
               max_year: int = 2023, 
-              min_year: int =2012) -> list[MetaAnalysis]:
+              min_year: int = 2012,
+              api_key: str = None) -> list[MetaAnalysis]:
         """
         Query articles from PubMed
     
@@ -214,16 +236,23 @@ class Crawler:
         Returns:
             List[MetaAnalysis]: A list of article objects
         """
-        print("Begin query")
+        print(f"Begin query for '{search_term}'")
         results = []
         start = 0
         while len(results) < max_results:
-            id_list = self.__query_PMID(search_term, max_results - len(results), start, max_year, min_year)
+            id_list = self.__query_PMID(
+                search_term=search_term,
+                max_results=max_results - len(results),
+                start=start,
+                max_year=max_year,
+                min_year=min_year,
+                api_key=api_key
+            )
             if not id_list:
                 break  # No more articles to fetch
 
             for id in id_list:
-                article = self.__query_article(id)
+                article = self.__query_article(pmid=id, api_key=api_key)
                 if article is None:  # skip articles with missing data
                     continue
                 if "meta-analysis" in article['title'].lower():
@@ -265,7 +294,7 @@ class Crawler:
 
         # export data to json file
         with open("./data/data.json", "w", encoding="utf-8") as f:
-          json.dump({ 'data': list }, f, ensure_ascii=False, indent = 4)
+            json.dump({ 'data': list }, f, ensure_ascii=False, indent = 4)
 
         # generate list of urls and associated paths
         urls = []
