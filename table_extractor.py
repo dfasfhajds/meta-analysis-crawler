@@ -39,7 +39,7 @@ def extract_table(pdf_path: str, pmid: str, csv_path: str):
     """
     keywords = get_quality_related_sections(read_all_titles(pdf_path))
 
-    # print(f"the keywords for {pmid} are :{keywords}")
+    print(f"the keywords for {pmid} are :{keywords}")
 
     with pdfplumber.open(pdf_path) as pdf:
         table_title = None
@@ -57,7 +57,7 @@ def extract_table(pdf_path: str, pmid: str, csv_path: str):
                 else:
                     continue
 
-                if any(keyword in current_title.lower() for keyword in keywords):
+                if any(keyword in current_title for keyword in keywords):
                     print(f"keyword found in title - {pmid}")
                     table = [[cell.replace('\n', ' ') if cell else cell for cell in row] for row in table]
                     table_title = current_title
