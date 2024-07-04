@@ -6,6 +6,8 @@ from pathlib import Path
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
 import json
+import re
+from helper import get_pdf_url_from_scihub, get_pdf_url_from_pmc
 
 class Crawler:
     """Wrapper of PubMed MetaAnalysis Crawler"""
@@ -86,15 +88,17 @@ class Crawler:
             date = f"{date_element.find('.//Year').text}/{date_element.find('.//Month').text}/{date_element.find('.//Day').text}"
 
             studies_index = self.__extract_studies_index_from_pmc_table(pmc)
-            studies_list = []
+            key_references = []
             reference_list_element = xml_response.find(".//ReferenceList")
             for i in studies_index:
                 ref_doi = reference_list_element[i-1].find(".//ArticleId[@IdType='doi']")
                 ref_pmid = reference_list_element[i-1].find(".//ArticleId[@IdType='pubmed']")
-                studies_list.append({
+                ref_pmc = reference_list_element[i-1].find(".//ArticleId[@IdType='pmc']")
+                key_references.append({
                     'citation': reference_list_element[i-1].find(".//Citation").text,
                     'doi': ref_doi.text if ref_doi is not None else None,
-                    'pmid': ref_pmid.text if ref_pmid is not None else None
+                    'pmid': ref_pmid.text if ref_pmid is not None else None,
+                    'pmc': ref_pmc.text if ref_pmc is not None else None
                 })
 
             doc = MetaAnalysis(
@@ -106,7 +110,7 @@ class Crawler:
                 journal=journal,
                 abstract=abstract,
                 publication_date=date,
-                studies_list=studies_list
+                key_references=key_references
             )
 
             return doc
@@ -289,7 +293,7 @@ class Crawler:
             Path(f"./data/{article['pmid']}").mkdir(exist_ok=True)
             Path(f"./data/{article['pmid']}/figures").mkdir(exist_ok=True)
             Path(f"./data/{article['pmid']}/supp").mkdir(exist_ok=True)
-            Path(f"./data/{article['pmid']}/studies").mkdir(exist_ok=True)
+            Path(f"./data/{article['pmid']}/key_references").mkdir(exist_ok=True)
 
         # export data to json file
         with open("./data/data.json", "w", encoding="utf-8") as f:
@@ -299,13 +303,35 @@ class Crawler:
         urls = []
         paths = []
         for article in list:
+            # get supplementary material urls
             for supp in article['supplementary_materials']:
                 urls.append(supp['src'])
                 paths.append(supp['path'])
 
+            # get figure urls
             for figure in article['figures']:
                 urls.append(figure['src'])
                 paths.append(figure['path'])
+
+            # get key reference urls
+            for ref in article['studies_list']:
+                dir = f"./data/{article['pmid']}/studies/"
+
+                if ref['pmc']:
+                    url = get_pdf_url_from_pmc(ref['pmc'])
+                    if url:
+                        urls.append(url)
+                        paths.append(f"{dir}{ref['pmc']}.pdf")
+                        continue
+
+                if ref['doi']:
+                    url = get_pdf_url_from_scihub(ref['doi'])
+                    if url:
+                        # sanitize doi so that it can be used as filename
+                        sanitized_doi = re.sub(r'[/:]', '_', ref['doi'])
+                        urls.append(url)
+                        paths.append(f"{dir}{sanitized_doi}.pdf")
+                        continue
 
         inputs = zip(urls, paths)
 
