@@ -314,8 +314,8 @@ class Crawler:
                 paths.append(figure['path'])
 
             # get key reference urls
-            for ref in article['studies_list']:
-                dir = f"./data/{article['pmid']}/studies/"
+            for ref in article['key_references']:
+                dir = f"./data/{article['pmid']}/key_references/"
 
                 if ref['pmc']:
                     url = get_pdf_url_from_pmc(ref['pmc'])
