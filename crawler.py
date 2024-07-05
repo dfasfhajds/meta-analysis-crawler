@@ -206,18 +206,19 @@ class Crawler:
 
             table_wrappers = soup.find_all("div", { 'class': "table-wrap" })
             for table_wrapper in table_wrappers:
-                caption = table_wrapper.find("div", { 'class': "caption" }).find("strong").text
+                caption = table_wrapper.find("div", { 'class': "caption" }).find("strong")
 
-                if not any(word in caption.lower() for word in keywords):
+                if caption and not any(word in caption.text.lower() for word in keywords):
                     continue
 
                 table = table_wrapper.find("div", { 'class': "xtable" }).find("table")
                 for tr in table.find("tbody").find_all("tr"):
-                    try:
-                        ref = tr.find("td").find("a")
-                        results.append(int(ref.text))
-                    except Exception as e:
-                        continue
+                    for td in tr.find_all("td"):
+                        try:
+                            anchor = td.find("a")
+                            results.append(int(anchor.text))
+                        except Exception as e:
+                            continue
 
             return list(dict.fromkeys(results)) # remove duplicate
         except Exception as e:
@@ -349,5 +350,8 @@ class Crawler:
         # download in parallel
         results = ThreadPool(cpu_count() - 1).imap_unordered(download_url, inputs)
         for result in results: 
-            print("Downloaded: " + result)
+            if result:
+                print("Downloaded: " + result)
+            else:
+                print("Download failed")
         print("Download completed")
