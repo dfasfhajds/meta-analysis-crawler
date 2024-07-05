@@ -1,8 +1,37 @@
 from bs4 import BeautifulSoup
 import requests
+import random
 
-headers = {'User-Agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36"}
-    
+user_agents = [
+    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1",
+    "Mozilla/5.0 (X11; CrOS i686 2268.111.0) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.57 Safari/536.11",
+    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.6 (KHTML, like Gecko) Chrome/20.0.1092.0 Safari/536.6",
+    "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.6 (KHTML, like Gecko) Chrome/20.0.1090.0 Safari/536.6",
+    "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/19.77.34.5 Safari/537.1",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.9 Safari/536.5",
+    "Mozilla/5.0 (Windows NT 6.0) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.36 Safari/536.5",
+    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3",
+    "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_0) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3",
+    "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1062.0 Safari/536.3",
+    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1062.0 Safari/536.3",
+    "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.1 Safari/536.3",
+    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.1 Safari/536.3",
+    "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.1 Safari/536.3",
+    "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.0 Safari/536.3",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.24 (KHTML, like Gecko) Chrome/19.0.1055.1 Safari/535.24",
+    "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/535.24 (KHTML, like Gecko) Chrome/19.0.1055.1 Safari/535.24"
+]
+
+def get_headers():
+    """
+    Randomly choose a User-Agent for HTTP headers
+
+    Returns:
+        HTTP headers
+    """
+    return {'User-Agent': random.choice(user_agents)}    
+
 def get_pdf_url_from_scihub(doi: str) -> str:
     """
     Get the URL of the article pdf from Scihub given the article doi
@@ -13,7 +42,7 @@ def get_pdf_url_from_scihub(doi: str) -> str:
     Returns:
         str: URL of the article pdf
     """
-    full_text_response = requests.get(f"https://sci-hub.mksa.top/{doi}", headers=headers)
+    full_text_response = requests.get(f"https://sci-hub.mksa.top/{doi}", headers=get_headers())
     soup = BeautifulSoup(full_text_response.content, "html.parser")
     
     try:
@@ -32,7 +61,7 @@ def get_pdf_url_from_pmc(pmc: str) -> str:
     Returns:
         str: URL of the article pdf
     """
-    full_text_response = requests.get(f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmc}", headers=headers)
+    full_text_response = requests.get(f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmc}", headers=get_headers())
     soup = BeautifulSoup(full_text_response.content, "html.parser")
     try:
         pdf_url = soup.find("li", {'class': "pdf-link"}).find("a").get("href")

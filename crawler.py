@@ -7,15 +7,44 @@ from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
 import json
 import re
+import random
 from helper import get_pdf_url_from_scihub, get_pdf_url_from_pmc
 
 class Crawler:
     """Wrapper of PubMed MetaAnalysis Crawler"""
 
-    headers = {'User-Agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36"}
+    user_agents = [
+        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1",
+        "Mozilla/5.0 (X11; CrOS i686 2268.111.0) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.57 Safari/536.11",
+        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.6 (KHTML, like Gecko) Chrome/20.0.1092.0 Safari/536.6",
+        "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.6 (KHTML, like Gecko) Chrome/20.0.1090.0 Safari/536.6",
+        "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/19.77.34.5 Safari/537.1",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.9 Safari/536.5",
+        "Mozilla/5.0 (Windows NT 6.0) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.36 Safari/536.5",
+        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3",
+        "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_0) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1063.0 Safari/536.3",
+        "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1062.0 Safari/536.3",
+        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1062.0 Safari/536.3",
+        "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.1 Safari/536.3",
+        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.1 Safari/536.3",
+        "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.1 Safari/536.3",
+        "Mozilla/5.0 (Windows NT 6.2) AppleWebKit/536.3 (KHTML, like Gecko) Chrome/19.0.1061.0 Safari/536.3",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.24 (KHTML, like Gecko) Chrome/19.0.1055.1 Safari/535.24",
+        "Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/535.24 (KHTML, like Gecko) Chrome/19.0.1055.1 Safari/535.24"
+    ]
 
     def __init__(self):
         pass
+
+    def get_headers(self: object):
+        """
+        Randomly choose a User-Agent for HTTP headers
+    
+        Returns:
+            HTTP headers
+        """
+        return {'User-Agent': random.choice(self.user_agents)}
 
     def __query_PMID(self: object, 
                      search_term: str, 
@@ -48,7 +77,7 @@ class Crawler:
         if api_key:
             params['api_key'] = api_key
 
-        response = requests.get(url, params=params, headers=self.headers)
+        response = requests.get(url, params=params, headers=self.get_headers())
         xml_response = ElementTree.fromstring(response.content)
 
         return [e.text for e in xml_response.find("IdList").findall("Id")]
@@ -72,7 +101,7 @@ class Crawler:
             }
             if api_key:
                 params['api_key'] = api_key
-            response = requests.get(url, params=params, headers=self.headers)
+            response = requests.get(url, params=params, headers=self.get_headers())
             xml_response = ElementTree.fromstring(response.content)
 
             title = xml_response.find(".//ArticleTitle").text
@@ -131,14 +160,14 @@ class Crawler:
         """
         try:
             results = []
-            full_text_response = requests.get(f"https://pubmed.ncbi.nlm.nih.gov/{pmid}", headers=self.headers)
+            full_text_response = requests.get(f"https://pubmed.ncbi.nlm.nih.gov/{pmid}", headers=self.get_headers())
             soup = BeautifulSoup(full_text_response.content, 'html.parser')
 
             links = soup.find_all('figure')
             for link in links:
                 fig_id = link.find('a').get('data-figure-id')
                 if fig_id:
-                    fig_response = requests.get(f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmcid}/figure/{fig_id}/", headers=self.headers)
+                    fig_response = requests.get(f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmcid}/figure/{fig_id}/", headers=self.get_headers())
                     soup = BeautifulSoup(fig_response.content, 'html.parser')
                     caption_div = soup.find('div', {'class': 'caption'})
                     caption = caption_div.find('strong').get_text() if caption_div else ""
@@ -169,7 +198,7 @@ class Crawler:
         keywords = ['quality', 'assess', 'assessment', 'risk', 'bias', 'publication', 'search', 'funnel', 'forest', 'newcastle', 'ottawa', 'STROBE', 'PRISMA']
         try:
             results = []
-            full_text_response = requests.get(url=url, headers=self.headers)
+            full_text_response = requests.get(url=url, headers=self.get_headers())
             soup = BeautifulSoup(full_text_response.content, 'html.parser')
 
             for suppmat in soup.find('dd', { 'id': 'data-suppmats' }).children:
@@ -201,7 +230,7 @@ class Crawler:
         keywords = ["characteristics", "study", "studies", "included", "selection", "selected"]
         try:
             results = []
-            full_text_response = requests.get(url, headers=self.headers)
+            full_text_response = requests.get(url, headers=self.get_headers())
             soup = BeautifulSoup(full_text_response.content, "html.parser")
 
             table_wrappers = soup.find_all("div", { 'class': "table-wrap" })
@@ -339,7 +368,7 @@ class Crawler:
         def download_url(args): 
             url, fn = args[0], args[1] 
             try: 
-                r = requests.get(url, headers=self.headers) 
+                r = requests.get(url, headers=self.get_headers()) 
                 with open(fn, "wb") as f: 
                     f.write(r.content) 
                 return url
