@@ -8,7 +8,7 @@ from multiprocessing.pool import ThreadPool
 import json
 import re
 import random
-from helper import get_pdf_url_from_scihub, get_pdf_url_from_pmc
+from helper import get_pdf_url
 from ai_tool import get_key_references_index
 
 class Crawler:
@@ -402,22 +402,16 @@ class Crawler:
             # get key reference urls
             for ref in article['key_references']:
                 dir = f"./data/{article['pmid']}/key_references/"
+                url = get_pdf_url(ref['pmc'], ref['doi'])
+                if url:
+                    urls.append(url)
 
-                if ref['pmc']:
-                    url = get_pdf_url_from_pmc(ref['pmc'])
-                    if url:
-                        urls.append(url)
+                    if ref['pmc']:
                         paths.append(f"{dir}{ref['pmc']}.pdf")
-                        continue
-
-                if ref['doi']:
-                    url = get_pdf_url_from_scihub(ref['doi'])
-                    if url:
+                    elif ref['doi']:
                         # sanitize doi so that it can be used as filename
                         sanitized_doi = re.sub(r'[/:]', '_', ref['doi'])
-                        urls.append(url)
                         paths.append(f"{dir}{sanitized_doi}.pdf")
-                        continue
 
         inputs = zip(urls, paths)
 
@@ -425,6 +419,9 @@ class Crawler:
             url, fn = args[0], args[1] 
             try: 
                 r = requests.get(url, headers=self.get_headers()) 
+                if not (r.headers.get("content-type") == "application/pdf") and "pdf" in url:
+                    return None
+                
                 with open(fn, "wb") as f: 
                     f.write(r.content) 
                 return url

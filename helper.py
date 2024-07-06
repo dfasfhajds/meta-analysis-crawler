@@ -68,3 +68,50 @@ def get_pdf_url_from_pmc(pmc: str) -> str:
         return f"https://www.ncbi.nlm.nih.gov{pdf_url}"
     except Exception as e:
         return None
+    
+def get_pdf_url_from_doi_org(doi: str):
+    """
+    Get the URL of the article pdf from doi.org given doi
+    Currently only JAMA is supported.
+
+    Parameters:
+        doi (str): Article doi
+
+    Returns:
+        str: URL of the article pdf
+    """
+    full_text_response = requests.get(f"https://doi.org/{doi}", headers=get_headers())
+    soup = BeautifulSoup(full_text_response.content, "html.parser")
+    
+    for anchor in soup.find_all("a"):
+        # JAMA
+        if "jama" in doi and "pdf" in anchor.__str__():
+            if anchor.has_attr("data-article-url"):
+                return f"https://jamanetwork.com/{anchor.get('data-article-url')}"
+    
+def get_pdf_url(pmc: str, doi: str):
+    """
+    Get the URL of the article pdf given PMC and doi
+
+    Parameters:
+        pmc (str): Article PMC
+        doi (str): Article doi
+
+    Returns:
+        str: URL of the article pdf
+    """
+    if pmc:
+        url = get_pdf_url_from_pmc(pmc)
+        if url:
+            return url
+    
+    if doi:
+        url = get_pdf_url_from_scihub(doi)
+        if url:
+            return url
+        
+        url = get_pdf_url_from_doi_org(doi)
+        if url:
+            return url
+    
+    return None
