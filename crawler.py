@@ -9,6 +9,7 @@ import json
 import re
 import random
 from helper import get_pdf_url_from_scihub, get_pdf_url_from_pmc
+from ai_tool import get_key_references_index
 
 class Crawler:
     """Wrapper of PubMed MetaAnalysis Crawler"""
@@ -116,7 +117,7 @@ class Crawler:
             date_element = xml_response.find(".//PubMedPubDate[@PubStatus='pubmed']")
             date = f"{date_element.find('.//Year').text}/{date_element.find('.//Month').text}/{date_element.find('.//Day').text}"
 
-            studies_index = self.__extract_studies_index_from_pmc_table(pmc)
+            studies_index = self.__extract_studies_index(pmc)
             key_references = []
             reference_list_element = xml_response.find(".//ReferenceList")
             for i in studies_index:
@@ -218,7 +219,7 @@ class Crawler:
 
     def __extract_studies_index_from_pmc_table(self: object, pmcid: str) -> list[int]:
         """
-        Extract the reference index of the included studies from table in full text articles on PMC
+        Extract the reference index of the key references from table in full text articles on PMC
     
         Parameters:
             article (MetaAnalysis): Article object
@@ -252,6 +253,61 @@ class Crawler:
             return list(dict.fromkeys(results)) # remove duplicate
         except Exception as e:
             return []
+
+    def __extract_studies_index_from_text(self: object, pmcid: str) -> list[int]:
+        """
+        Extract the reference index of the key references from the "Results" section
+        in the full text articles on PMC using gpt
+    
+        Parameters:
+            article (MetaAnalysis): Article object
+    
+        Returns:
+            List: list of reference index
+        """
+        url = f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmcid}"
+        keywords = ["characteristics", "study", "studies", "included", "selection", "selected"]
+        try:
+            full_text_response = requests.get(url, headers=self.get_headers())
+            soup = BeautifulSoup(full_text_response.content, "html.parser")
+
+            sections = soup.find_all("div", {'class': "tsec"})
+            
+            for section in sections:
+                subheader = section.find("h2", {'class': "head"})
+                if subheader and subheader.text.lower() == "results":
+                    for subsection in section.find_all("div", {'class': "sec"}):
+                        title = subsection.find("h3")
+                        if title and not any(word in title.text.lower() for word in keywords):
+                            continue
+                        
+                        for paragraph in subsection.find_all("p"):
+                            anchors = paragraph.find_all("a", {'class': "bibr"})
+                            if not anchors:
+                                continue
+                            return get_key_references_index(paragraph.text)
+        except Exception as e:
+            return []
+
+    def __extract_studies_index(self: object, pmcid: str) -> list[int]:
+        """
+        Extract the reference index of the key reference from table in full text articles on PMC
+    
+        Parameters:
+            article (MetaAnalysis): Article object
+    
+        Returns:
+            List: list of reference index
+        """
+        studies_index = self.__extract_studies_index_from_pmc_table(pmcid)
+        if studies_index:
+            return studies_index
+        
+        studies_index = self.__extract_studies_index_from_text(pmcid)
+        if studies_index:
+            return studies_index
+        
+        return []
 
     def query(self: object, 
               search_term: str, 
