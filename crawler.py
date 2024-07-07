@@ -248,8 +248,11 @@ class Crawler:
                 for tr in table.find("tbody").find_all("tr"):
                     for td in tr.find_all("td"):
                         try:
-                            anchor = td.find("a")
-                            results.append(int(anchor.text))
+                            anchors = td.find_all("a", {'class': "bibr"})
+                            for anchor in anchors:
+                                rid = anchor.get("rid")
+                                if rid:
+                                    results.append(int(rid.split("r")[-1]))
                         except Exception as e:
                             continue
 
