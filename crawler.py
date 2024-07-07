@@ -10,6 +10,7 @@ import re
 import random
 from helper import get_pdf_url
 from ai_tool import get_key_references_index
+import pdfkit
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -404,7 +405,7 @@ class Crawler:
             # get key reference urls
             for ref in article['key_references']:
                 dir = f"./data/{article['pmid']}/key_references/"
-                url = get_pdf_url(ref['pmc'], ref['doi'])
+                url = get_pdf_url(ref['pmc'], ref['doi'], ref['pmid'])
                 if url:
                     urls.append(url)
 
@@ -414,6 +415,8 @@ class Crawler:
                         # sanitize doi so that it can be used as filename
                         sanitized_doi = re.sub(r'[/:]', '_', ref['doi'])
                         paths.append(f"{dir}{sanitized_doi}.pdf")
+                    elif ref['pmid']:
+                        paths.append(f"{dir}PMID{ref['pmid']}.pdf")
 
         inputs = zip(urls, paths)
 
@@ -426,12 +429,28 @@ class Crawler:
         def download_url(args): 
             url, fn = args[0], args[1] 
             try: 
-                r = requests.get(url, headers=self.get_headers()) 
-                if not (r.headers.get("content-type") == "application/pdf") and "pdf" in url:
-                    return None
-                
-                with open(fn, "wb") as f: 
-                    f.write(r.content) 
+                if "?report=printable" in url:
+                    options = {
+                        'margin-top': '0.5in',
+                        'margin-right': '0.5in',
+                        'margin-bottom': '0.5in',
+                        'margin-left': '0.5in',
+                        'encoding': "UTF-8",
+                        'no-outline': None,
+                        'custom-header': [
+                            ('User-Agent', self.get_headers()['User-Agent'])
+                        ],
+                        'no-background': None
+                    }
+                    pdfkit.from_url(url, fn, options=options)
+                else:
+                    r = session.get(url, headers=self.get_headers())
+                    
+                    if not (r.headers.get("content-type") == "application/pdf") and "pdf" in url:
+                        return None
+                    
+                    with open(fn, "wb") as f: 
+                        f.write(r.content)
                 return url
             except Exception as e: 
                 # print('Exception in download_url():', e)
