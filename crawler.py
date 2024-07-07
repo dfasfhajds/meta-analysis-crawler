@@ -10,6 +10,8 @@ import re
 import random
 from helper import get_pdf_url
 from ai_tool import get_key_references_index
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 class Crawler:
     """Wrapper of PubMed MetaAnalysis Crawler"""
@@ -414,6 +416,12 @@ class Crawler:
                         paths.append(f"{dir}{sanitized_doi}.pdf")
 
         inputs = zip(urls, paths)
+
+        session = requests.Session()
+        retry = Retry(connect=3, backoff_factor=0.5)
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
 
         def download_url(args): 
             url, fn = args[0], args[1] 
