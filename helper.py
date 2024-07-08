@@ -123,6 +123,27 @@ def get_doi_from_pmid(pmid: str):
     except Exception as e:
         return None
 
+def get_pdf_url_from_google_scholar(doi: str, pmid: str):
+    url = "https://scholar.google.com/scholar_lookup"
+    params = {}
+    if doi:
+        params['doi'] = doi
+    if pmid:
+        params['pmid'] = pmid
+    full_text_response = requests.get(url, params=params, headers=get_headers())
+    soup = BeautifulSoup(full_text_response.content, "html.parser")
+
+    articles = soup.find("div", {'id': "gs_res_ccl_mid"})
+
+    if articles:
+        anchor = articles.find("a")
+
+        if not anchor:
+            return None
+        
+        if "pdf" in anchor.get("href"):
+            return anchor.get("href")
+
 def get_pdf_url(pmc: str, doi: str, pmid: str):
     """
     Get the URL of the article pdf given PMC and doi
@@ -148,6 +169,11 @@ def get_pdf_url(pmc: str, doi: str, pmid: str):
             return url
         
         url = get_pdf_url_from_doi_org(doi)
+        if url:
+            return url
+        
+    if doi or pmid:
+        url = get_pdf_url_from_google_scholar(doi, pmid)
         if url:
             return url
     
