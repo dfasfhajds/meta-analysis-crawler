@@ -130,7 +130,16 @@ def get_pdf_url_from_google_scholar(doi: str, pmid: str):
         params['doi'] = doi
     if pmid:
         params['pmid'] = pmid
-    full_text_response = requests.get(url, params=params, headers=get_headers())
+    full_text_response = requests.get(
+        url, 
+        params=params, 
+        headers=get_headers(),
+        cookies={
+            'AEC': "AVYB7cplwsf6tXMfYmJxWy-so21t-nPno7LCeQsKA1Ncv0SFGgthdl8PFQ",
+            'GSP': "LM=1720792536:S=_51ZGDTvUYA2BMJd",
+            'NID': "515=RBBujzyaRc5Q3K7Zgd1p-PHIweRWUFL2p3bsBh-qiJG-fwllMgUBjAAA4bI_6qRL-tbUcZ1RlBMJIhoAP5ykEtjthYMNV6ytMBWlbpvKGVvJMdIWcRs3iIyAjZg5xR86P99u7R6MI4J3IzAtxfSjaCa1yidz3Va9RlPercex2_wdx3HS8r9rIzo"
+        }
+    )
     soup = BeautifulSoup(full_text_response.content, "html.parser")
 
     articles = soup.find("div", {'id': "gs_res_ccl_mid"})
@@ -142,7 +151,11 @@ def get_pdf_url_from_google_scholar(doi: str, pmid: str):
             return None
         
         if "pdf" in anchor.get("href"):
-            return anchor.get("href")
+            res = requests.get(anchor.get("href"), headers={
+                'User-Agent': get_headers()['User-Agent'],
+                'Referer': "https://scholar.google.com/"
+            })
+            return res.url
 
 def get_pdf_url(pmc: str, doi: str, pmid: str):
     """

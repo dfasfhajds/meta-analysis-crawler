@@ -447,9 +447,12 @@ class Crawler:
                     }
                     pdfkit.from_url(url, fn, options=options)
                 else:
-                    r = session.get(url, headers=self.get_headers())
+                    r = session.get(url, headers={
+                        'User-Agent': self.get_headers()['User-Agent'],
+                        'Referer': "https://scholar.google.com/"
+                    })
                     
-                    if not (r.headers.get("content-type") == "application/pdf") and "pdf" in url:
+                    if not ("application/pdf" in r.headers.get("content-type")) and "pdf" in url:
                         return None
                     
                     with open(fn, "wb") as f: 
