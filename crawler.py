@@ -256,6 +256,17 @@ class Crawler:
                         except Exception as e:
                             continue
 
+                for tr in table.find("thead").find_all("tr"):
+                    for td in tr.find_all("th"):
+                        try:
+                            anchors = td.find_all("a", {'class': "bibr"})
+                            for anchor in anchors:
+                                rid = anchor.get("rid")
+                                if rid:
+                                    results.append(int(rid.split("r")[-1]))
+                        except Exception as e:
+                            continue
+
             return list(dict.fromkeys(results)) # remove duplicate
         except Exception as e:
             return []
