@@ -56,10 +56,9 @@ def get_pdf_url_from_scihub(doi: str) -> str:
     Returns:
         str: URL of the article pdf
     """
-    full_text_response = session.get(f"https://sci-hub.mksa.top/{doi}", headers=get_headers())
-    soup = BeautifulSoup(full_text_response.content, "html.parser")
-    
     try:
+        full_text_response = session.get(f"https://sci-hub.mksa.top/{doi}", headers=get_headers())
+        soup = BeautifulSoup(full_text_response.content, "html.parser")
         pdf_url = soup.find("embed").get("src")
         return pdf_url
     except Exception as e:
@@ -75,9 +74,9 @@ def get_pdf_url_from_pmc(pmc: str) -> str:
     Returns:
         str: URL of the article pdf
     """
-    full_text_response = session.get(f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmc}", headers=get_headers())
-    soup = BeautifulSoup(full_text_response.content, "html.parser")
     try:
+        full_text_response = session.get(f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmc}", headers=get_headers())
+        soup = BeautifulSoup(full_text_response.content, "html.parser")
         pdf_link = soup.find("li", {'class': "pdf-link"})
         if pdf_link:
             pdf_url = pdf_link.find("a").get("href")
@@ -98,64 +97,69 @@ def get_pdf_url_from_doi_org(doi: str):
     Returns:
         str: URL of the article pdf
     """
-    full_text_response = requests.get(f"https://doi.org/{doi}", headers=get_headers())
-    soup = BeautifulSoup(full_text_response.content, "html.parser")
-    
-    for anchor in soup.find_all("a"):
-        # JAMA
-        if "jama" in doi and "pdf" in anchor.__str__():
-            if anchor.has_attr("data-article-url"):
-                return f"https://jamanetwork.com/{anchor.get('data-article-url')}"
+    try:
+        full_text_response = requests.get(f"https://doi.org/{doi}", headers=get_headers())
+        soup = BeautifulSoup(full_text_response.content, "html.parser")
+        
+        for anchor in soup.find_all("a"):
+            # JAMA
+            if "jama" in doi and "pdf" in anchor.__str__():
+                if anchor.has_attr("data-article-url"):
+                    return f"https://jamanetwork.com/{anchor.get('data-article-url')}"
+    except Exception as e:
+        return None
     
 def get_doi_from_pmid(pmid: str):
-    url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
-    params = {
-        'db': 'pubmed',
-        'id': pmid,
-        'retmode': 'xml',
-        'api_key': PUBMED_API_KEY
-    }
-    response = session.get(url, params=params, headers=get_headers())
-    xml_response = ElementTree.fromstring(response.content)
-    
     try:
+        url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+        params = {
+            'db': 'pubmed',
+            'id': pmid,
+            'retmode': 'xml',
+            'api_key': PUBMED_API_KEY
+        }
+        response = session.get(url, params=params, headers=get_headers())
+        xml_response = ElementTree.fromstring(response.content)
         return xml_response.find(".//ArticleId[@IdType='doi']").text
     except Exception as e:
         return None
 
 def get_pdf_url_from_google_scholar(doi: str, pmid: str):
-    url = "https://scholar.google.com/scholar_lookup"
-    params = {}
-    if doi:
-        params['doi'] = doi
-    if pmid:
-        params['pmid'] = pmid
-    full_text_response = requests.get(
-        url, 
-        params=params, 
-        headers=get_headers(),
-        cookies={
-            'AEC': "AVYB7cplwsf6tXMfYmJxWy-so21t-nPno7LCeQsKA1Ncv0SFGgthdl8PFQ",
-            'GSP': "LM=1720792536:S=_51ZGDTvUYA2BMJd",
-            'NID': "515=RBBujzyaRc5Q3K7Zgd1p-PHIweRWUFL2p3bsBh-qiJG-fwllMgUBjAAA4bI_6qRL-tbUcZ1RlBMJIhoAP5ykEtjthYMNV6ytMBWlbpvKGVvJMdIWcRs3iIyAjZg5xR86P99u7R6MI4J3IzAtxfSjaCa1yidz3Va9RlPercex2_wdx3HS8r9rIzo"
-        }
-    )
-    soup = BeautifulSoup(full_text_response.content, "html.parser")
+    try:
+        url = "https://scholar.google.com/scholar_lookup"
+        params = {}
+        if doi:
+            params['doi'] = doi
+        if pmid:
+            params['pmid'] = pmid
+        full_text_response = session.get(
+            url, 
+            params=params, 
+            headers=get_headers(),
+            cookies={
+                'AEC': "AVYB7cplwsf6tXMfYmJxWy-so21t-nPno7LCeQsKA1Ncv0SFGgthdl8PFQ",
+                'GSP': "LM=1720792536:S=_51ZGDTvUYA2BMJd",
+                'NID': "515=RBBujzyaRc5Q3K7Zgd1p-PHIweRWUFL2p3bsBh-qiJG-fwllMgUBjAAA4bI_6qRL-tbUcZ1RlBMJIhoAP5ykEtjthYMNV6ytMBWlbpvKGVvJMdIWcRs3iIyAjZg5xR86P99u7R6MI4J3IzAtxfSjaCa1yidz3Va9RlPercex2_wdx3HS8r9rIzo"
+            }
+        )
+        soup = BeautifulSoup(full_text_response.content, "html.parser")
 
-    articles = soup.find("div", {'id': "gs_res_ccl_mid"})
+        articles = soup.find("div", {'id': "gs_res_ccl_mid"})
 
-    if articles:
-        anchor = articles.find("a")
+        if articles:
+            anchor = articles.find("a")
 
-        if not anchor:
-            return None
-        
-        if "pdf" in anchor.get("href"):
-            res = requests.get(anchor.get("href"), headers={
-                'User-Agent': get_headers()['User-Agent'],
-                'Referer': "https://scholar.google.com/"
-            })
-            return res.url
+            if not anchor:
+                return None
+            
+            if "pdf" in anchor.get("href"):
+                res = session.get(anchor.get("href"), headers={
+                    'User-Agent': get_headers()['User-Agent'],
+                    'Referer': "https://scholar.google.com/"
+                })
+                return res.url
+    except Exception as e:
+        return None
 
 def get_pdf_url(pmc: str, doi: str, pmid: str):
     """
