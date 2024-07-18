@@ -98,7 +98,7 @@ def get_pdf_url_from_doi_org(doi: str):
         str: URL of the article pdf
     """
     try:
-        full_text_response = requests.get(f"https://doi.org/{doi}", headers=get_headers())
+        full_text_response = session.get(f"https://doi.org/{doi}", headers=get_headers())
         soup = BeautifulSoup(full_text_response.content, "html.parser")
         
         for anchor in soup.find_all("a"):
@@ -106,6 +106,10 @@ def get_pdf_url_from_doi_org(doi: str):
             if "jama" in doi and "pdf" in anchor.__str__():
                 if anchor.has_attr("data-article-url"):
                     return f"https://jamanetwork.com/{anchor.get('data-article-url')}"
+            if "pdf" in anchor.get("href"):
+                response = session.get(anchor.get("href"), headers=get_headers())
+                if "application/pdf" in response.headers.get("content-type"):
+                    return anchor.get("href")
     except Exception as e:
         return None
     
@@ -124,24 +128,23 @@ def get_doi_from_pmid(pmid: str):
     except Exception as e:
         return None
 
-def get_pdf_url_from_google_scholar(doi: str, pmid: str):
+def get_pdf_url_from_google_scholar(doi: str, pmid: str, url: str = None):
     try:
-        url = "https://scholar.google.com/scholar_lookup"
+        base_url = "https://scholar.google.com/scholar_lookup"
         params = {}
         if doi:
             params['doi'] = doi
         if pmid:
             params['pmid'] = pmid
-        full_text_response = session.get(
-            url, 
-            params=params, 
-            headers=get_headers(),
-            cookies={
-                'AEC': "AVYB7cplwsf6tXMfYmJxWy-so21t-nPno7LCeQsKA1Ncv0SFGgthdl8PFQ",
-                'GSP': "LM=1720792536:S=_51ZGDTvUYA2BMJd",
-                'NID': "515=RBBujzyaRc5Q3K7Zgd1p-PHIweRWUFL2p3bsBh-qiJG-fwllMgUBjAAA4bI_6qRL-tbUcZ1RlBMJIhoAP5ykEtjthYMNV6ytMBWlbpvKGVvJMdIWcRs3iIyAjZg5xR86P99u7R6MI4J3IzAtxfSjaCa1yidz3Va9RlPercex2_wdx3HS8r9rIzo"
-            }
-        )
+        cookies={
+            'AEC': "AVYB7cplwsf6tXMfYmJxWy-so21t-nPno7LCeQsKA1Ncv0SFGgthdl8PFQ",
+            'GSP': "LM=1720792536:S=_51ZGDTvUYA2BMJd",
+            'NID': "515=RBBujzyaRc5Q3K7Zgd1p-PHIweRWUFL2p3bsBh-qiJG-fwllMgUBjAAA4bI_6qRL-tbUcZ1RlBMJIhoAP5ykEtjthYMNV6ytMBWlbpvKGVvJMdIWcRs3iIyAjZg5xR86P99u7R6MI4J3IzAtxfSjaCa1yidz3Va9RlPercex2_wdx3HS8r9rIzo"
+        }
+        if url:
+            full_text_response = session.get(url, headers=get_headers(), cookies=cookies)
+        else:
+            full_text_response = session.get(base_url, params=params, headers=get_headers(), cookies=cookies)
         soup = BeautifulSoup(full_text_response.content, "html.parser")
 
         articles = soup.find("div", {'id': "gs_res_ccl_mid"})
@@ -152,7 +155,7 @@ def get_pdf_url_from_google_scholar(doi: str, pmid: str):
             if not anchor:
                 return None
             
-            if "pdf" in anchor.get("href"):
+            if "pdf" in anchor.get("href") or "PDF" in anchor.text:
                 res = session.get(anchor.get("href"), headers={
                     'User-Agent': get_headers()['User-Agent'],
                     'Referer': "https://scholar.google.com/"

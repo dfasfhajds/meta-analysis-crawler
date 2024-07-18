@@ -8,7 +8,7 @@ from multiprocessing.pool import ThreadPool
 import json
 import re
 import random
-from helper import get_pdf_url
+from helper import get_pdf_url, get_key_reference_url
 from ai_tool import get_key_references_index
 import pdfkit
 from requests.adapters import HTTPAdapter
@@ -131,7 +131,8 @@ class Crawler:
                     'citation': reference_list_element[i-1].find(".//Citation").text,
                     'doi': ref_doi.text if ref_doi is not None else None,
                     'pmid': ref_pmid.text if ref_pmid is not None else None,
-                    'pmc': ref_pmc.text if ref_pmc is not None else None
+                    'pmc': ref_pmc.text if ref_pmc is not None else None,
+                    'index': i
                 })
 
             doc = MetaAnalysis(
@@ -231,7 +232,7 @@ class Crawler:
             List: list of reference index
         """
         url = f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmcid}"
-        keywords = ["characteristics", "study", "studies", "included", "selection", "selected"]
+        keywords = ["characteristics", "study", "studies", "included", "selection", "selected", "search"]
         try:
             results = []
             full_text_response = requests.get(url, headers=self.get_headers())
@@ -283,7 +284,7 @@ class Crawler:
             List: list of reference index
         """
         url = f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmcid}"
-        keywords = ["characteristics", "study", "studies", "included", "selection", "selected"]
+        keywords = ["characteristics", "study", "studies", "included", "selection", "selected", "search"]
         try:
             full_text_response = requests.get(url, headers=self.get_headers())
             soup = BeautifulSoup(full_text_response.content, "html.parser")
@@ -422,6 +423,7 @@ class Crawler:
                 url = get_pdf_url(ref['pmc'], ref['doi'], ref['pmid'])
                 if url:
                     urls.append(url)
+                    print(f"Extracted Key Reference URL: {url}")
 
                     if ref['pmc']:
                         paths.append(f"{dir}{ref['pmc']}.pdf")
