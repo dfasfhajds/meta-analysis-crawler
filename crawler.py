@@ -253,7 +253,8 @@ class Crawler:
                             for anchor in anchors:
                                 rid = anchor.get("rid")
                                 if rid:
-                                    results.append(int(rid.split("r")[-1]))
+                                    match = re.search(r'\d+', rid)
+                                    results.append(int(match.group()))
                         except Exception as e:
                             continue
 
