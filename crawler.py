@@ -8,7 +8,7 @@ from multiprocessing.pool import ThreadPool
 import json
 import re
 import random
-from helper import get_pdf_url, get_key_reference_url
+from helper import get_pdf_url
 from ai_tool import get_key_references_index
 import pdfkit
 from requests.adapters import HTTPAdapter
